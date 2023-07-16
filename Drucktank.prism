@@ -1,0 +1,188 @@
+dtmc
+
+const int FillTimeout = 60;
+const int Timeout = FillTimeout + 4; 	// 2 Schritte Startverz�gerung, 2 Schritte Abschaltverz�gerung
+const int RuptureTime = 5;
+const int DrainTime = 10;
+
+const int Empty = 0;
+const int Filling = 1;
+const int Filled = 2;
+const int Ruptured = 3;
+const int Draining = 4;
+
+const int Off = 0;
+const int On = 1;
+
+const int Closed = 0;
+const int Open = 1;
+
+const int Start = 2;
+
+const int Countdown = 2;
+
+const int No = 0;
+const int Yes = 1;
+
+module _S1
+	S1 : [0..2] init Start;
+
+	[tick] (S1=Start) -> 0.5 : (S1'=Start) + 0.5 : (S1'=Closed);
+	[tick] (S1=Open & fs1!=No) -> (S1'=Closed);
+	[tick] (S1=Closed & fs1=No) -> (S1'=Open);
+
+	// Default case
+	[tick] !((S1=Start) | (S1=Open & fs1!=No) | (S1=Closed & fs1=No)) -> true;
+endmodule
+
+module _T
+	T0 :  [0..2] init Closed;
+	t : [0..Timeout] init 0;
+
+	[tick] (T0=Closed & S0=Closed & (S1=Closed | K1=Closed)) -> (T0'=Countdown) & (t'=0);
+	[tick] (T0=Countdown & (S0=Open | (S1 != Closed & K1 = Open))) -> (T0'=Closed);
+	[tick] ((T0=Countdown & t < Timeout)) -> (T0'=Countdown) & (t'=t+1);
+	[tick] ((T0=Countdown & t = Timeout & ft=No)) -> (T0'=Open);
+	[tick] ((T0=Countdown & ft = Yes)) -> (T0'=Closed);
+	[tick] (T0=Open & (S0 = Open | (S1 != Closed & K1 = Open))) -> (T0'=Closed);
+
+	// Default case
+	[tick] !(
+		(T0=Closed & S0=Closed & (S1=Closed | K1=Closed)) | 
+		(T0=Countdown & (S0=Open | (S1 != Closed & K1 = Open))) | 
+		(T0=Countdown & t < Timeout) |
+		(T0=Countdown & t = Timeout & ft=No) ) |
+		(T0=Countdown & ft = Yes) |
+		(T0=Open & (S0 = Open | (S1 != Closed & K1 = Open))
+		) -> true;
+endmodule
+
+module _K1
+	K1 :  [0..1] init Open;
+
+	[tick] 	(K1=Closed & T0=Open & fk1=No) -> (K1'=Open);
+	[tick] 	(K1=Open & T0!=Open & S1=Closed) -> (K1'=Closed);
+	
+	// Default case
+	[tick] !(
+		(K1=Closed & T0=Open & fk1=No) |
+		(K1=Open & T0!=Open & S1=Closed)
+	) -> true;
+endmodule
+
+module _K2
+	K2 : [0..1] init Open;
+
+	[tick] 	(K2=Closed & (S0=Open | (S1!=Closed & K1=Open)) & fk2 = No) -> (K2'=Open);
+	[tick] (K2=Open & (S0=Closed & (S1=Closed | K1=Closed))) -> (K2'=Closed);
+
+	// Default case
+	[tick] !(
+		(K2=Closed & (S0=Open | (S1!=Closed & K1=Open)) & fk2 = No) |
+		(K2=Open & (S0=Closed & (S1=Closed | K1=Closed)))
+	) -> true;
+endmodule
+
+module _M
+	M : [0..1] init Off;
+
+	[tick] (M=Off & K2=Closed) -> (M'=On);
+	[tick] (M=On & K2=Open) -> (M'=Off);
+	
+	// Default case
+	[tick] !(
+		(M=Off & K2=Closed) |
+		(M=On & K2=Open)
+	) -> true;
+endmodule
+
+module _S
+	S0 : [0..1] init Closed;
+
+	[tick] (S0=Closed & D=Filled & fs!=Yes) -> (S0'=Open);
+	[tick] (S0=Open & D=Empty) -> (S0'=Closed);
+
+	// Default case
+	[tick] !(
+		(S0=Closed & D=Filled & fs!=Yes) |
+		(S0=Open & D=Empty)
+	) -> true;
+endmodule
+
+module _D
+	D : [0..4] init Empty;
+	f : [0..FillTimeout];
+
+	[tick] (D=Empty & M=On) -> (D'=Filling);
+	[tick] (D=Filling & M=On & f<FillTimeout) -> (D'=Filling) & (f'=f+1);
+	[tick] (D=Filling & M=On & f=FillTimeout) -> (D'=Filled) & (f'=0);
+	[tick] (D=Filled & M=Off) -> (D'=Draining) & (f'=0);
+	[tick] (D=Draining & M=Off & f<DrainTime) -> (D'=Draining) & (f'=f+1);
+	[tick] (D=Draining & M=Off & f=DrainTime) -> (D'=Empty) & (f'=0);
+	[tick] (D=Filled & M=On & f<RuptureTime) -> (D'=Filled) & (f'=f+1);
+	[tick] (D=Filled & M=On & f=RuptureTime) -> (D'=Ruptured) & (f'=f);
+	
+	// Default case
+	[tick] !(
+		(D=Empty & M=On) |
+		(D=Filling & M=On & f<FillTimeout) |
+		(D=Filling & M=On & f=FillTimeout) |
+		(D=Filled & M=Off) |
+		(D=Draining & M=Off & f<DrainTime) |
+		(D=Draining & M=Off & f=DrainTime) |
+		(D=Filled & M=On & f<RuptureTime) |
+		(D=Filled & M=On & f=RuptureTime)
+	) -> true;
+	
+endmodule
+
+module _TransientFault_S1
+	fs1 : [0..2] init Start;
+
+	[tick] (fs1=Start) -> 0.00003 : (fs1'=Yes) + 0.99997 : (fs1'=No);
+	// [tick] (fs1=Start) -> 0 : (fs1'=Yes) + 1 : (fs1'=No);
+	[tick] (fs1!=Start) -> true;
+endmodule
+
+module _PersistentFault_K1
+	fk1 : [0..2] init Start;
+
+	[tick] (fk1=Start) -> 0.00003 : (fk1'=Yes) + 0.99997 : (fk1'=No);
+	// [tick] (fk1=Start) -> 0 : (fk1'=Yes) + 1 : (fk1'=No);
+	[tick] (fk1!=Start) -> true;
+endmodule
+
+module _PersistentFault_K2
+	fk2 : [0..2] init Start;
+
+	[tick] (fk2=Start) -> 0.00003 : (fk2'=Yes) + 0.99997 : (fk2'=No);
+	// [tick] (fk2=Start) -> 0 : (fk2'=Yes) + 1 : (fk2'=No);
+	[tick] (fk2!=Start) -> true;
+endmodule
+
+module _PersistentFault_S
+	fs : [0..2] init Start;
+
+	[tick] (fs=Start) -> 0.0001 : (fs'=Yes) + 0.9999 : (fs'=No);
+	// [tick] (fs=Start) -> 0 : (fs'=Yes) + 1 : (fs'=No);
+	[tick] (fs!=Start) -> true;
+endmodule
+
+module _PersistentFault_T
+	ft : [0..2] init Start;
+
+	[tick] (ft=Start) -> 0.0001 : (ft'=Yes) + 0.9999 : (ft'=No);
+	// [tick] (ft=Start) -> 0 : (ft'=Yes) + 1 : (ft'=No);
+	[tick] (ft!=Start) -> true;
+endmodule
+
+label "hazard_ruptured" = D=Ruptured;
+
+// Fix default transition
+
+// Make S1 Fault persistent
+// If it's transient then the failure will happen at some point in EVERY simiulation
+// When we measured the probability with the critical sets from NuSMV, we considered the probability of FailureS1 as 3.10**-5
+// That means it only happens in 3.10**-5 of traces.
+
+// Make the decision about the error in the first tick
