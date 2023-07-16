@@ -137,46 +137,48 @@ module _D
 endmodule
 
 module _TransientFault_S1
-	fs1 : [0..2] init Start;
+	fs1 : [0..1] init No;
 
-	[tick] (fs1=Start) -> 0.00003 : (fs1'=Yes) + 0.99997 : (fs1'=No);
+	//[tick] (fs1=Start) -> 0.00003 : (fs1'=Yes) + 0.99997 : (fs1'=No);
 	// [tick] (fs1=Start) -> 0 : (fs1'=Yes) + 1 : (fs1'=No);
-	[tick] (fs1!=Start) -> true;
+	[tick] (true) -> 0.00003 : (fs1'=Yes) + 0.99997 : (fs1'=No);
 endmodule
 
 module _PersistentFault_K1
-	fk1 : [0..2] init Start;
+	fk1 : [0..1] init No;
 
-	[tick] (fk1=Start) -> 0.00003 : (fk1'=Yes) + 0.99997 : (fk1'=No);
+	[tick] (fk1=No) -> 0.00003 : (fk1'=Yes) + 0.99997 : (fk1'=No);
 	// [tick] (fk1=Start) -> 0 : (fk1'=Yes) + 1 : (fk1'=No);
-	[tick] (fk1!=Start) -> true;
+	[tick] (fk1!=No) -> true;
 endmodule
 
 module _PersistentFault_K2
-	fk2 : [0..2] init Start;
+	fk2 : [0..1] init No;
 
-	[tick] (fk2=Start) -> 0.00003 : (fk2'=Yes) + 0.99997 : (fk2'=No);
+	[tick] (fk2=No) -> 0.00003 : (fk2'=Yes) + 0.99997 : (fk2'=No);
 	// [tick] (fk2=Start) -> 0 : (fk2'=Yes) + 1 : (fk2'=No);
-	[tick] (fk2!=Start) -> true;
+	[tick] (fk2!=No) -> true;
 endmodule
 
 module _PersistentFault_S
-	fs : [0..2] init Start;
+	fs : [0..1] init No;
 
-	[tick] (fs=Start) -> 0.0001 : (fs'=Yes) + 0.9999 : (fs'=No);
+	[tick] (fs=No) -> 0.0001 : (fs'=Yes) + 0.9999 : (fs'=No);
 	// [tick] (fs=Start) -> 0 : (fs'=Yes) + 1 : (fs'=No);
-	[tick] (fs!=Start) -> true;
+	[tick] (fs!=No) -> true;
 endmodule
 
 module _PersistentFault_T
-	ft : [0..2] init Start;
+	ft : [0..1] init No;
 
-	[tick] (ft=Start) -> 0.0001 : (ft'=Yes) + 0.9999 : (ft'=No);
+	[tick] (ft=No) -> 0.0001 : (ft'=Yes) + 0.9999 : (ft'=No);
 	// [tick] (ft=Start) -> 0 : (ft'=Yes) + 1 : (ft'=No);
-	[tick] (ft!=Start) -> true;
+	[tick] (ft!=No) -> true;
 endmodule
 
 label "hazard_ruptured" = D=Ruptured;
+
+// P =? [F"hazard_ruptured"]
 
 // Fix default transition
 
